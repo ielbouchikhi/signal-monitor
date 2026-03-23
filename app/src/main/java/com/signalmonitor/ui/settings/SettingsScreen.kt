@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
@@ -21,6 +23,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,7 +43,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val shareIntent by viewModel.shareIntent.collectAsState()
+    val deleteAllState by viewModel.deleteAllState.collectAsState()
     val context = LocalContext.current
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // Launch share sheet when intent is ready
     LaunchedEffect(shareIntent) {
@@ -93,7 +98,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 supportingText = { Text("HTTP HEAD request; measured once per sample interval.") },
                 trailingIcon = {
                     if (pingHost != settings.pingHost) {
-                        androidx.compose.material3.TextButton(onClick = { viewModel.setPingHost(pingHost) }) { Text("Save") }
+                        TextButton(onClick = { viewModel.setPingHost(pingHost) }) { Text("Save") }
                     }
                 },
             )
@@ -169,6 +174,49 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 if (exportState is ExportState.Error) {
                     Text((exportState as ExportState.Error).message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 }
+            }
+
+            Divider(Modifier.padding(vertical = 16.dp))
+
+            // ── Delete all data ───────────────────────────────────────────
+            SectionHeader("Danger zone")
+            Text("Permanently delete all recorded samples. This cannot be undone.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { showDeleteConfirm = true },
+                    enabled = deleteAllState !is DeleteAllState.Deleting,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete all data") }
+                if (deleteAllState is DeleteAllState.Deleting) {
+                    CircularProgressIndicator(modifier = Modifier.padding(4.dp))
+                }
+                if (deleteAllState is DeleteAllState.Done) {
+                    Text("All data deleted.", style = MaterialTheme.typography.labelSmall)
+                }
+                if (deleteAllState is DeleteAllState.Error) {
+                    Text((deleteAllState as DeleteAllState.Error).message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            if (showDeleteConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = { Text("Delete all data?") },
+                    text = { Text("This will permanently remove every recorded sample. This action cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteConfirm = false
+                                viewModel.deleteAllData()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        ) { Text("Delete") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                    },
+                )
             }
 
             Spacer(Modifier.height(32.dp))
