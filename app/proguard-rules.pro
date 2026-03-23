@@ -1,0 +1,2 @@
+-keep class com.signalmonitor.data.db.** { *; }
+-keep class com.signalmonitor.data.preferences.** { *; }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Signal Monitor</string>
+    <string name="notification_channel_name">Signal Monitoring</string>
+    <string name="notification_channel_desc">Active when signal quality is being logged</string>
+    <string name="notification_title">Monitoring signal quality</string>
+    <string name="notification_text">Logging 5G/LTE metrics in the background</string>
+</resources>
