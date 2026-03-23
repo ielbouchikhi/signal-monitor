@@ -51,6 +51,10 @@ interface MetricSampleDao {
     @Query("DELETE FROM metric_samples WHERE timestamp < :beforeMs")
     suspend fun deleteOlderThan(beforeMs: Long): Int
 
+    /** Delete every row in the table. */
+    @Query("DELETE FROM metric_samples")
+    suspend fun deleteAll()
+
     @Query("SELECT COUNT(*) FROM metric_samples")
     suspend fun count(): Int
 

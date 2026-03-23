@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.signalmonitor.data.export.CsvExporter
 import com.signalmonitor.data.preferences.AppSettings
 import com.signalmonitor.data.preferences.UserPreferences
+import com.signalmonitor.data.repository.MonitoringRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val prefs: UserPreferences,
     private val csvExporter: CsvExporter,
+    private val repository: MonitoringRepository,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = prefs.settings
@@ -53,6 +55,30 @@ class SettingsViewModel @Inject constructor(
 
     fun clearShareIntent() { _shareIntent.value = null }
     fun clearExportState() { _exportState.value = ExportState.Idle }
+
+    private val _deleteAllState = MutableStateFlow<DeleteAllState>(DeleteAllState.Idle)
+    val deleteAllState: StateFlow<DeleteAllState> = _deleteAllState.asStateFlow()
+
+    fun deleteAllData() {
+        viewModelScope.launch {
+            _deleteAllState.value = DeleteAllState.Deleting
+            try {
+                repository.deleteAllData()
+                _deleteAllState.value = DeleteAllState.Done
+            } catch (e: Exception) {
+                _deleteAllState.value = DeleteAllState.Error(e.message ?: "Delete failed")
+            }
+        }
+    }
+
+    fun clearDeleteAllState() { _deleteAllState.value = DeleteAllState.Idle }
+}
+
+sealed class DeleteAllState {
+    object Idle     : DeleteAllState()
+    object Deleting : DeleteAllState()
+    object Done     : DeleteAllState()
+    data class Error(val message: String) : DeleteAllState()
 }
 
 sealed class ExportState {

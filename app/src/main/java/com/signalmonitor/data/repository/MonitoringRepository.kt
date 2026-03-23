@@ -61,4 +61,7 @@ class MonitoringRepository @Inject constructor(
         val cutoff = System.currentTimeMillis() - retentionDays * 24L * 3600 * 1000
         dao.deleteOlderThan(cutoff)
     }
+
+    /** Permanently deletes every stored sample. */
+    suspend fun deleteAllData() = dao.deleteAll()
 }
