@@ -61,11 +61,13 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
 
             Spacer(Modifier.height(16.dp))
 
+            val gappedSamples = samples.withGapMarkers()
+
             // RSRP chart
             ChartSection(
                 title = "RSRP — Signal Strength",
                 unit = "dBm",
-                points = samples.map { it.toPoint { s -> s.rsrp?.toFloat() } },
+                points = gappedSamples.map { it?.toPoint { s -> s.rsrp?.toFloat() } },
                 lineColor = ChartRsrp,
                 stats = stats?.let { Triple(it.minRsrp, it.avgRsrp, it.maxRsrp) },
             )
@@ -74,7 +76,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             ChartSection(
                 title = "SINR — Signal Quality",
                 unit = "dB",
-                points = samples.map { it.toPoint { s -> s.sinr?.toFloat() } },
+                points = gappedSamples.map { it?.toPoint { s -> s.sinr?.toFloat() } },
                 lineColor = ChartSinr,
                 stats = stats?.let { Triple(it.minSinr, it.avgSinr, it.maxSinr) },
             )
@@ -83,14 +85,14 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             ChartSection(
                 title = "Latency — Round Trip",
                 unit = "ms",
-                points = samples.map { it.toPoint { s -> s.latencyMs?.toFloat() } },
+                points = gappedSamples.map { it?.toPoint { s -> s.latencyMs?.toFloat() } },
                 lineColor = ChartLatency,
                 stats = stats?.let { Triple(it.minLatency, it.avgLatency, it.maxLatency) },
             )
 
             // Throughput chart (passive + probe overlay)
-            val passivePoints = samples.map { it.toPoint { s -> s.downloadMbps } }
-            val probePoints = samples.map { it.toPoint { s -> s.probeDownloadMbps } }
+            val passivePoints = gappedSamples.map { it?.toPoint { s -> s.downloadMbps } }
+            val probePoints = gappedSamples.map { it?.toPoint { s -> s.probeDownloadMbps } }
             val hasProbeData = probePoints.any { it != null }
 
             ChartSection(
@@ -183,6 +185,27 @@ private fun StatLabel(label: String, value: String) {
 
 private fun MetricSample.toPoint(selector: (MetricSample) -> Float?): ChartPoint? =
     selector(this)?.let { ChartPoint(timestamp, it) }
+
+/**
+ * Inserts null sentinels between consecutive samples whose timestamps differ by
+ * more than 3× the typical (median) inter-sample interval, or 60 s minimum.
+ * These nulls cause the chart to break the line and show a visible gap rather
+ * than connecting across a logging pause.
+ */
+internal fun List<MetricSample>.withGapMarkers(): List<MetricSample?> {
+    if (size <= 1) return this
+    val intervals = zipWithNext { a, b -> b.timestamp - a.timestamp }.filter { it > 0 }
+    val medianInterval = if (intervals.isNotEmpty()) intervals.sorted()[intervals.size / 2] else 60_000L
+    val gapThreshold = maxOf(medianInterval * 3, 60_000L)
+    val result = mutableListOf<MetricSample?>()
+    for (i in indices) {
+        result.add(this[i])
+        if (i < size - 1 && this[i + 1].timestamp - this[i].timestamp > gapThreshold) {
+            result.add(null)
+        }
+    }
+    return result
+}
 
 private fun formatStat(v: Float): String =
     if (v == kotlin.math.floor(v.toDouble()).toFloat()) v.toInt().toString()

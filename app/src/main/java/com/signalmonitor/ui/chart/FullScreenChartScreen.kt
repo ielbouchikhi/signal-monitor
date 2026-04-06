@@ -32,6 +32,7 @@ import com.signalmonitor.ui.components.ChartPoint
 import com.signalmonitor.ui.components.TimeSeriesChart
 import com.signalmonitor.ui.history.TimeRange
 import com.signalmonitor.ui.history.HistoryViewModel
+import com.signalmonitor.ui.history.withGapMarkers
 import com.signalmonitor.ui.theme.ChartLatency
 import com.signalmonitor.ui.theme.ChartProbe
 import com.signalmonitor.data.quality.NetworkQualityScore
@@ -163,7 +164,7 @@ private fun StatBlock(label: String, value: String, unit: String) {
 }
 
 private fun List<MetricSample>.toPoints(selector: (MetricSample) -> Float?): List<ChartPoint?> =
-    map { s -> selector(s)?.let { ChartPoint(s.timestamp, it) } }
+    withGapMarkers().map { s -> s?.let { selector(it)?.let { v -> ChartPoint(it.timestamp, v) } } }
 
 /** Show integers without decimals, floats with at most 1 decimal place. */
 private fun formatStat(v: Float): String =

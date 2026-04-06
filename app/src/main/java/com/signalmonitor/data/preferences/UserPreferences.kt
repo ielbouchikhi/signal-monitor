@@ -31,6 +31,8 @@ data class AppSettings(
     val probeUrl: String = "https://speed.cloudflare.com/__down?bytes=524288",
     /** Whether monitoring is currently enabled (persisted so it survives process death). */
     val monitoringEnabled: Boolean = false,
+    /** Whether data collection is paused (service stays alive, sampling stops). */
+    val loggingPaused: Boolean = false,
     val alertEnabled: Boolean = false,
     val alertRsrpThreshold: Int = -105,
     val alertConsecutiveSamples: Int = 3,
@@ -50,6 +52,7 @@ class UserPreferences @Inject constructor(@ApplicationContext context: Context) 
             pingHost = prefs[Keys.PING_HOST] ?: "https://1.1.1.1",
             probeUrl = prefs[Keys.PROBE_URL] ?: "https://speed.cloudflare.com/__down?bytes=524288",
             monitoringEnabled = prefs[Keys.MONITORING_ENABLED] ?: false,
+            loggingPaused = prefs[Keys.LOGGING_PAUSED] ?: false,
             alertEnabled = prefs[Keys.ALERT_ENABLED] ?: false,
             alertRsrpThreshold = prefs[Keys.ALERT_RSRP_THRESHOLD] ?: -105,
             alertConsecutiveSamples = prefs[Keys.ALERT_CONSECUTIVE] ?: 3,
@@ -77,6 +80,9 @@ class UserPreferences @Inject constructor(@ApplicationContext context: Context) 
     suspend fun setMonitoringEnabled(enabled: Boolean) =
         store.edit { it[Keys.MONITORING_ENABLED] = enabled }
 
+    suspend fun setLoggingPaused(paused: Boolean) =
+        store.edit { it[Keys.LOGGING_PAUSED] = paused }
+
     suspend fun setAlertEnabled(enabled: Boolean) =
         store.edit { it[Keys.ALERT_ENABLED] = enabled }
 
@@ -94,6 +100,7 @@ class UserPreferences @Inject constructor(@ApplicationContext context: Context) 
         val PING_HOST = stringPreferencesKey("ping_host")
         val PROBE_URL = stringPreferencesKey("probe_url")
         val MONITORING_ENABLED = booleanPreferencesKey("monitoring_enabled")
+        val LOGGING_PAUSED = booleanPreferencesKey("logging_paused")
         val ALERT_ENABLED = booleanPreferencesKey("alert_enabled")
         val ALERT_RSRP_THRESHOLD = intPreferencesKey("alert_rsrp_threshold")
         val ALERT_CONSECUTIVE = intPreferencesKey("alert_consecutive_samples")

@@ -60,6 +60,10 @@ class DashboardViewModel @Inject constructor(
         .map { it.monitoringEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val loggingPaused: StateFlow<Boolean> = repository.prefs.settings
+        .map { it.loggingPaused }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     fun toggleMonitoring(enabled: Boolean) {
         Log.d("SignalMonitor", "toggleMonitoring enabled=$enabled")
         viewModelScope.launch {
@@ -68,8 +72,18 @@ class DashboardViewModel @Inject constructor(
                 Log.d("SignalMonitor", "Calling startForegroundService")
                 context.startForegroundService(MonitoringService.startIntent(context))
             } else {
+                // Reset pause state so next start begins collecting immediately.
+                repository.prefs.setLoggingPaused(false)
                 context.startService(MonitoringService.stopIntent(context))
             }
         }
+    }
+
+    fun pauseLogging() {
+        context.startService(MonitoringService.pauseIntent(context))
+    }
+
+    fun resumeLogging() {
+        context.startService(MonitoringService.resumeIntent(context))
     }
 }
