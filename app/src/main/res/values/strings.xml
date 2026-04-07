@@ -5,4 +5,5 @@
     <string name="notification_channel_desc">Active when signal quality is being logged</string>
     <string name="notification_title">Monitoring signal quality</string>
     <string name="notification_text">Logging 5G/LTE metrics in the background</string>
+    <string name="notification_text_paused">Logging paused — existing data preserved</string>
 </resources>

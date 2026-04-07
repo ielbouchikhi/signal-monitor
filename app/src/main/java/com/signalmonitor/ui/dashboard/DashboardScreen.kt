@@ -13,11 +13,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -54,6 +59,7 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val monitoring by viewModel.monitoringEnabled.collectAsState()
+    val paused by viewModel.loggingPaused.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -81,8 +87,22 @@ fun DashboardScreen(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (monitoring) {
+                        IconButton(onClick = {
+                            if (paused) viewModel.resumeLogging() else viewModel.pauseLogging()
+                        }) {
+                            Icon(
+                                imageVector = if (paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                contentDescription = if (paused) "Resume logging" else "Pause logging",
+                            )
+                        }
+                    }
                     Text(
-                        if (monitoring) "On" else "Off",
+                        when {
+                            !monitoring -> "Off"
+                            paused -> "Paused"
+                            else -> "On"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(end = 8.dp),
                     )

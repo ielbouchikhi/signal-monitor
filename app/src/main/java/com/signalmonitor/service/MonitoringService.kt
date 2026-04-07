@@ -71,6 +71,7 @@ class MonitoringService : LifecycleService() {
     private var probeJob: Job? = null
     private var consecutivePoorSamples = 0
     private var alertFired = false
+    @Volatile private var isPaused = false
 
     // TrafficStats baseline for passive throughput delta
     private var lastRxBytes = TrafficStats.UNSUPPORTED.toLong()
@@ -90,6 +91,8 @@ class MonitoringService : LifecycleService() {
 
         const val ACTION_START = "com.signalmonitor.START"
         const val ACTION_STOP = "com.signalmonitor.STOP"
+        const val ACTION_PAUSE = "com.signalmonitor.PAUSE"
+        const val ACTION_RESUME = "com.signalmonitor.RESUME"
         const val ALERT_CHANNEL_ID = "signal_alert_channel"
         const val ALERT_NOTIFICATION_ID = 2
 
@@ -98,6 +101,12 @@ class MonitoringService : LifecycleService() {
 
         fun stopIntent(context: Context) =
             Intent(context, MonitoringService::class.java).apply { action = ACTION_STOP }
+
+        fun pauseIntent(context: Context) =
+            Intent(context, MonitoringService::class.java).apply { action = ACTION_PAUSE }
+
+        fun resumeIntent(context: Context) =
+            Intent(context, MonitoringService::class.java).apply { action = ACTION_RESUME }
     }
 
     override fun onCreate() {
@@ -113,6 +122,8 @@ class MonitoringService : LifecycleService() {
         when (intent?.action) {
             ACTION_START -> startMonitoring()
             ACTION_STOP -> stopMonitoring()
+            ACTION_PAUSE -> pauseLogging()
+            ACTION_RESUME -> resumeLogging()
         }
         return START_STICKY
     }
@@ -131,9 +142,14 @@ class MonitoringService : LifecycleService() {
 
         lifecycleScope.launch {
             val settings = repository.settings.first()
-            Log.d(TAG, "Settings loaded: interval=${settings.sampleIntervalSec}s")
-            startSamplingLoop(settings)
-            if (settings.activeProbeEnabled) startProbeLoop(settings)
+            isPaused = settings.loggingPaused
+            Log.d(TAG, "Settings loaded: interval=${settings.sampleIntervalSec}s paused=$isPaused")
+            if (isPaused) {
+                updateNotification()
+            } else {
+                startSamplingLoop(settings)
+                if (settings.activeProbeEnabled) startProbeLoop(settings)
+            }
         }
     }
 
@@ -142,8 +158,37 @@ class MonitoringService : LifecycleService() {
         stopLocationUpdates()
         samplingJob?.cancel()
         probeJob?.cancel()
+        isPaused = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun pauseLogging() {
+        Log.d(TAG, "pauseLogging")
+        samplingJob?.cancel()
+        probeJob?.cancel()
+        isPaused = true
+        updateNotification()
+        lifecycleScope.launch { repository.prefs.setLoggingPaused(true) }
+    }
+
+    private fun resumeLogging() {
+        Log.d(TAG, "resumeLogging")
+        isPaused = false
+        lastRxBytes = TrafficStats.getMobileRxBytes()
+        lastRxTime = System.currentTimeMillis()
+        updateNotification()
+        lifecycleScope.launch {
+            repository.prefs.setLoggingPaused(false)
+            val settings = repository.settings.first()
+            startSamplingLoop(settings)
+            if (settings.activeProbeEnabled) startProbeLoop(settings)
+        }
+    }
+
+    private fun updateNotification() {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(NOTIFICATION_ID, buildNotification())
     }
 
     @SuppressLint("MissingPermission")
@@ -438,7 +483,10 @@ class MonitoringService : LifecycleService() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.notification_title))
-            .setContentText(getString(R.string.notification_text))
+            .setContentText(
+                if (isPaused) getString(R.string.notification_text_paused)
+                else getString(R.string.notification_text)
+            )
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setSilent(true)
